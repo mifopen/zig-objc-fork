@@ -12,6 +12,14 @@ pub fn MsgSend(comptime T: type) type {
     // 2. T should have a field "value" that can be an "id" (same size)
 
     return struct {
+        pub inline fn message(
+            target: T,
+            comptime Return: type,
+            msg: [:0]const u8,
+            args: anytype,
+        ) Return {
+            return @This().msgSend(target, Return, objc.sel(msg), args);
+        }
         /// Invoke a selector on the target, i.e. an instance method on an
         /// object or a class method on a class. The args should be a tuple.
         pub fn msgSend(

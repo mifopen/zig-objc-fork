@@ -28,7 +28,7 @@ test {
 
 test {
     const testing = std.testing;
-    const NSObject = objc.Class.getClass("NSObject").?;
+    const NSObject = objc.Class("NSObject").?;
 
     const prop = NSObject.getProperty("className").?;
     try testing.expectEqualStrings("className", prop.getName());

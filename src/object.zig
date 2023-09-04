@@ -78,7 +78,7 @@ pub const Object = struct {
 
 test {
     const testing = std.testing;
-    const NSObject = objc.Class.getClass("NSObject").?;
+    const NSObject = objc.Class("NSObject").?;
 
     // Should work with our wrappers
     const obj = NSObject.msgSend(objc.Object, objc.Sel.registerName("alloc"), .{});
