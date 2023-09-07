@@ -74,11 +74,23 @@ pub const Object = struct {
 
         return self.msgSend(T, getter, .{});
     }
+
+    pub fn copy(self: Object, size: usize) Object {
+        return fromId(c.object_copy(self.value, size));
+    }
+
+    pub fn dispose(self: Object) void {
+        c.object_dispose(self.value);
+    }
+
+    pub fn isClass(self: Object) bool {
+        return if (c.object_isClass(self.value) == 1) true else false;
+    }
 };
 
 test {
     const testing = std.testing;
-    const NSObject = objc.Class("NSObject").?;
+    const NSObject = objc.getClass("NSObject").?;
 
     // Should work with our wrappers
     const obj = NSObject.msgSend(objc.Object, objc.Sel.registerName("alloc"), .{});
