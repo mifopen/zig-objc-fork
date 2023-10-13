@@ -45,6 +45,24 @@ pub const Class = struct {
     pub fn conformsToProtocol(self: Class, protocol: objc.Protocol) bool {
         return if (c.class_conformsToProtocol(self.value, &protocol.value) == 1) true else false;
     }
+
+    // currently only allows for overriding methods previously defined, e.g. by a superclass.
+    // imp should be a function with C calling convention
+    // whose first two arguments are a `c.id` and a `c.SEL`.
+    pub fn provideImplementation(self: Class, name: [:0]const u8, imp: anytype) void {
+        const type_info = @typeInfo(@TypeOf(imp));
+        switch (type_info) {
+            .Fn => |fn_info| {
+                std.debug.assert(fn_info.calling_convention == .C);
+                std.debug.assert(fn_info.is_var_args == false);
+                std.debug.assert(fn_info.params.len >= 2);
+                std.debug.assert(fn_info.params[0].type == c.id);
+                std.debug.assert(fn_info.params[1].type == c.SEL);
+            },
+            else => unreachable,
+        }
+        _ = c.class_replaceMethod(self.value, objc.sel(name).value, @ptrCast(&imp), null);
+    }
 };
 
 pub fn getClass(name: [:0]const u8) ?Class {
@@ -57,6 +75,21 @@ pub fn getMetaClass(name: [:0]const u8) ?Class {
     return .{
         .value = c.objc_getMetaClass(name) orelse return null,
     };
+}
+
+// begin by calling this function, then call registerClassPair on the result when you are finished
+pub fn allocateClassPair(superclass: ?Class, name: [:0]const u8) ?Class {
+    return .{
+        .value = c.objc_allocateClassPair(if (superclass) |cls| cls.value else null, name.ptr, 0) orelse return null,
+    };
+}
+
+pub fn registerClassPair(class: Class) void {
+    c.objc_registerClassPair(class.value);
+}
+
+pub fn disposeClassPair(class: Class) void {
+    c.objc_disposeClassPair(class.value);
 }
 
 test "getClass" {
@@ -99,4 +132,24 @@ test "copyProperyList" {
     const list = NSObject.copyPropertyList();
     defer objc.free(list);
     try testing.expect(list.len > 20);
+}
+
+test "allocatecClassPair and provideImplementation" {
+    const testing = std.testing;
+    const NSObject = getClass("NSObject").?;
+    var my_object = allocateClassPair(NSObject, "my_object").?;
+    my_object.provideImplementation("hash", struct {
+        fn inner(target: c.id, sel: c.SEL) callconv(.C) u64 {
+            _ = sel;
+            _ = target;
+            return 69;
+        }
+    }.inner);
+    registerClassPair(my_object);
+    defer disposeClassPair(my_object);
+    const object: objc.Object = .{
+        .value = my_object.message(c.id, "alloc", .{}),
+    };
+    defer object.message(void, "dealloc", .{});
+    try testing.expectEqual(@as(u64, 69), object.message(u64, "hash", .{}));
 }
