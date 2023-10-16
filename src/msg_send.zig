@@ -158,7 +158,7 @@ pub fn MsgSend(comptime T: type) type {
                 .receiver = target.value,
                 .super_class = superclass.value,
             };
-            const result = @call(.auto, msg_send_ptr, .{ super, sel.value } ++ args);
+            const result = @call(.auto, msg_send_ptr, .{ &super, sel.value } ++ args);
 
             if (!is_object) return result;
             return .{ .value = result };
@@ -252,7 +252,7 @@ fn MsgSendSuperFn(
         var acc: [argsInfo.fields.len + 2]Fn.Param = undefined;
 
         // First argument is always the target and selector.
-        acc[0] = .{ .type = c.objc_super, .is_generic = false, .is_noalias = false };
+        acc[0] = .{ .type = [*c]c.objc_super, .is_generic = false, .is_noalias = false };
         acc[1] = .{ .type = c.SEL, .is_generic = false, .is_noalias = false };
 
         // Remaining arguments depend on the args given, in the order given
