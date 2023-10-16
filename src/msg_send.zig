@@ -154,7 +154,7 @@ pub fn MsgSend(comptime T: type) type {
             // Due to this stage2 Zig issue[1], this must be var for now.
             // [1]: https://github.com/ziglang/zig/issues/13598
             var msg_send_ptr: *const Fn = @ptrCast(msg_send_fn);
-            const super: c.objc_super = .{
+            var super: c.objc_super = .{
                 .receiver = target.value,
                 .super_class = superclass.value,
             };
@@ -296,4 +296,22 @@ test {
         @as(u16, 0),
         @as(u32, 0),
     })));
+}
+
+test "subClass" {
+    const Subclass = objc.allocateClassPair(objc.getClass("NSObject").?, "subclass").?;
+    defer objc.disposeClassPair(Subclass);
+    const str = struct {
+        fn inner(target: objc.c.id, sel: objc.c.SEL) callconv(.C) objc.c.id {
+            _ = sel;
+            const self = objc.Object.fromId(target);
+            self.message_super(objc.getClass("NSObject").?, void, "init", .{});
+            return target;
+        }
+    };
+    Subclass.replaceMethod("init", str.inner);
+    objc.registerClassPair(Subclass);
+    const subclass_obj = Subclass.message(objc.Object, "alloc", .{});
+    defer subclass_obj.message(void, "dealloc", .{});
+    subclass_obj.message(void, "init", .{});
 }
