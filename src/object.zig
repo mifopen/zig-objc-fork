@@ -86,6 +86,16 @@ pub const Object = struct {
     pub fn isClass(self: Object) bool {
         return if (c.object_isClass(self.value) == 1) true else false;
     }
+
+    pub fn getInstanceVariable(self: Object, name: [:0]const u8) Object {
+        const ivar = c.object_getInstanceVariable(self.value, name, null);
+        return fromId(c.object_getIvar(self.value, ivar));
+    }
+
+    pub fn setInstanceVariable(self: Object, name: [:0]const u8, val: Object) void {
+        const ivar = c.object_getInstanceVariable(self.value, name, null);
+        c.object_setIvar(self.value, ivar, val.value);
+    }
 };
 
 test {

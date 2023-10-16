@@ -49,7 +49,7 @@ pub const Class = struct {
     // currently only allows for overriding methods previously defined, e.g. by a superclass.
     // imp should be a function with C calling convention
     // whose first two arguments are a `c.id` and a `c.SEL`.
-    pub fn provideImplementation(self: Class, name: [:0]const u8, imp: anytype) void {
+    pub fn replaceMethod(self: Class, name: [:0]const u8, imp: anytype) void {
         const type_info = @typeInfo(@TypeOf(imp));
         switch (type_info) {
             .Fn => |fn_info| {
@@ -62,6 +62,12 @@ pub const Class = struct {
             else => unreachable,
         }
         _ = c.class_replaceMethod(self.value, objc.sel(name).value, @ptrCast(&imp), null);
+    }
+
+    // only call this function between allocateClassPair and registerClassPair
+    // this adds an Ivar of type `id`.
+    pub fn addIvar(self: Class, name: [:0]const u8) bool {
+        return c.class_addIvar(self.value, name, @sizeOf(c.id), @alignOf(c.id), "@");
     }
 };
 
@@ -134,11 +140,11 @@ test "copyProperyList" {
     try testing.expect(list.len > 20);
 }
 
-test "allocatecClassPair and provideImplementation" {
+test "allocatecClassPair and replaceMethod" {
     const testing = std.testing;
     const NSObject = getClass("NSObject").?;
     var my_object = allocateClassPair(NSObject, "my_object").?;
-    my_object.provideImplementation("hash", struct {
+    my_object.replaceMethod("hash", struct {
         fn inner(target: c.id, sel: c.SEL) callconv(.C) u64 {
             _ = sel;
             _ = target;
@@ -152,4 +158,24 @@ test "allocatecClassPair and provideImplementation" {
     };
     defer object.message(void, "dealloc", .{});
     try testing.expectEqual(@as(u64, 69), object.message(u64, "hash", .{}));
+}
+
+test "Ivars" {
+    const testing = std.testing;
+    const NSObject = getClass("NSObject").?;
+    var my_object = allocateClassPair(NSObject, "my_object").?;
+    try testing.expectEqual(true, my_object.addIvar("my_ivar"));
+    registerClassPair(my_object);
+    defer disposeClassPair(my_object);
+    const object: objc.Object = .{
+        .value = my_object.message(c.id, "alloc", .{}),
+    };
+    defer object.message(void, "dealloc", .{});
+    const NSString = getClass("NSString").?;
+    const my_string = NSString.message(objc.Object, "stringWithUTF8String:", .{"69---nice"});
+    defer my_string.message(void, "dealloc", .{});
+    object.setInstanceVariable("my_ivar", my_string);
+    const my_ivar = object.getInstanceVariable("my_ivar");
+    const slice = std.mem.sliceTo(my_ivar.getProperty([*c]const u8, "UTF8String"), 0);
+    try testing.expectEqualSlices(u8, "69---nice", slice);
 }
