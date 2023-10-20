@@ -14,6 +14,7 @@ pub fn build(b: *std.Build) void {
     });
     tests.linkSystemLibrary("objc");
     tests.linkFramework("CoreFoundation");
+    tests.linkFramework("System");
     tests.linkFramework("Cocoa");
     b.installArtifact(tests);
 
