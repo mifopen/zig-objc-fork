@@ -145,8 +145,8 @@ pub fn initBlock(comptime T: type, captures: anytype, blockFn: anytype) *T {
             var real_dst: *T = @ptrCast(@alignCast(dst));
             inline for (captures_info.fields) |field| {
                 if (field.type == objc.c.id) {
-                    var dst_field = &@field(real_dst, field.name);
-                    const src_field = &@field(real_src, field.name);
+                    var dst_field = @field(real_dst, field.name);
+                    const src_field = @field(real_src, field.name);
                     _Block_object_assign(dst_field, src_field, 3);
                 }
             }
@@ -155,7 +155,7 @@ pub fn initBlock(comptime T: type, captures: anytype, blockFn: anytype) *T {
             const real_src: *T = @ptrCast(@alignCast(src));
             inline for (captures_info.fields) |field| {
                 if (field.type == objc.c.id) {
-                    _Block_object_dispose(&field(real_src, field.name), 3);
+                    _Block_object_dispose(@field(real_src, field.name), 3);
                 }
                 std.heap.raw_c_allocator.free(std.mem.sliceTo(@field(@field(real_src, "descriptor"), "signature").?, 0));
                 std.heap.raw_c_allocator.destroy(@field(real_src, "descriptor"));
